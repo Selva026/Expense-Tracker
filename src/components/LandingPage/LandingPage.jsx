@@ -8,15 +8,18 @@ import AddBalanceForm from "../../components/Forms/AddBalanceForm/AddBalanceForm
 import PieChart from "../../components/PieChart/PieChart";
 import BarChart from "../../components/BarChart/BarChart";
 
-
 function LandingPage() {
-  
-  const [balance, setBalance] = useState(0);
+  const [balance, setBalance] = useState(() => {
+    const localBalance = localStorage.getItem("balance");
+    return localBalance ? Number(localBalance) : 5000; // Default balance
+  });
   const [expense, setExpense] = useState(0);
-  const [expenseList, setExpenseList] = useState([]);
+  const [expenseList, setExpenseList] = useState(() => {
+    const items = JSON.parse(localStorage.getItem("expenses"));
+    return items || []; // Default expense list
+  });
   const [isMounted, setIsMounted] = useState(false);
 
- 
   const [isOpenExpense, setIsOpenExpense] = useState(false);
   const [isOpenBalance, setIsOpenBalance] = useState(false);
 
@@ -31,85 +34,66 @@ function LandingPage() {
     travel: 0,
   });
 
+  // Initial setup for localStorage data
   useEffect(() => {
+    try {
+      const localBalance = localStorage.getItem("balance");
+      const localExpenses = JSON.parse(localStorage.getItem("expenses")) || [];
 
-    const localBalance = localStorage.getItem("balance");
+      if (localBalance) {
+        setBalance(Number(localBalance));
+      } else {
+        setBalance(5000); // Default value
+        localStorage.setItem("balance", 5000);
+      }
 
-    if (localBalance) {
-      setBalance(Number(localBalance));
-    } else {
-      setBalance(5000);
-      localStorage.setItem("balance", 5000);
+      setExpenseList(localExpenses);
+    } catch (error) {
+      console.error("LocalStorage error:", error);
+      setBalance(5000); // Default fallback
+      setExpenseList([]);
     }
-
-    const items = JSON.parse(localStorage.getItem("expenses"));
-
-    setExpenseList(items || []);
     setIsMounted(true);
   }, []);
 
+  // Watch expenseList and calculate expenses + category breakdown
   useEffect(() => {
     if (expenseList.length > 0 || isMounted) {
       localStorage.setItem("expenses", JSON.stringify(expenseList));
     }
 
-    if (expenseList.length > 0) {
-      setExpense(
-        expenseList.reduce(
-          (accumulator, currentValue) =>
-            accumulator + Number(currentValue.price),
-          0
-        )
-      );
-    } else {
-      setExpense(0);
-    }
+    // Calculate total expenses
+    const totalExpense = expenseList.reduce(
+      (accumulator, currentValue) => accumulator + Number(currentValue.price),
+      0
+    );
+    setExpense(totalExpense);
 
-    let foodSpends = 0,
-      entertainmentSpends = 0,
-      travelSpends = 0;
-    let foodCount = 0,
-      entertainmentCount = 0,
-      travelCount = 0;
+    // Calculate category breakdown
+    const categoryBreakdown = expenseList.reduce(
+      (acc, item) => {
+        acc.spends[item.category] =
+          (acc.spends[item.category] || 0) + Number(item.price);
+        acc.count[item.category] = (acc.count[item.category] || 0) + 1;
+        return acc;
+      },
+      { spends: { food: 0, entertainment: 0, travel: 0 }, count: {} }
+    );
 
-    expenseList.forEach((item) => {
-      if (item.category == "food") {
-        foodSpends += Number(item.price);
-        foodCount++;
-      } else if (item.category == "entertainment") {
-        entertainmentSpends += Number(item.price);
-        entertainmentCount++;
-      } else if (item.category == "travel") {
-        travelSpends += Number(item.price);
-        travelCount++;
-      }
-    });
+    setCategorySpends(categoryBreakdown.spends);
+    setCategoryCount(categoryBreakdown.count);
+  }, [expenseList, isMounted]);
 
-    setCategorySpends({
-      food: foodSpends,
-      travel: travelSpends,
-      entertainment: entertainmentSpends,
-    });
-
-    setCategoryCount({
-      food: foodCount,
-      travel: travelCount,
-      entertainment: entertainmentCount,
-    });
-  }, [expenseList]);
-
+  // Watch balance and persist to localStorage
   useEffect(() => {
     if (isMounted) {
       localStorage.setItem("balance", balance);
     }
-  }, [balance]);
-
+  }, [balance, isMounted]);
 
   return (
     <div className={styles.container}>
       <h1>Expense Tracker</h1>
-
-      
 
       <div className={styles.cardsWrapper}>
         <Card
@@ -135,14 +119,13 @@ function LandingPage() {
 
         <PieChart
           data={[
-            { name: "Food", value: categorySpends.food },
-            { name: "Entertainment", value: categorySpends.entertainment },
-            { name: "Travel", value: categorySpends.travel },
+            { name: "Food", value: categorySpends.food || 0 },
+            { name: "Entertainment", value: categorySpends.entertainment || 0 },
+            { name: "Travel", value: categorySpends.travel || 0 },
           ]}
         />
       </div>
 
-     
       <div className={styles.transactionsWrapper}>
         <TransactionList
           transactions={expenseList}
@@ -154,14 +137,13 @@ function LandingPage() {
 
         <BarChart
           data={[
-            { name: "Food", value: categorySpends.food },
-            { name: "Entertainment", value: categorySpends.entertainment },
-            { name: "Travel", value: categorySpends.travel },
+            { name: "Food", value: categorySpends.food || 0 },
+            { name: "Entertainment", value: categorySpends.entertainment || 0 },
+            { name: "Travel", value: categorySpends.travel || 0 },
           ]}
         />
       </div>
 
-    
       <Modal isOpen={isOpenExpense} setIsOpen={setIsOpenExpense}>
         <ExpenseForm
           setIsOpen={setIsOpenExpense}
