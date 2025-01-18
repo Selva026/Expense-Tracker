@@ -162,3 +162,12 @@ function LandingPage() {
 }
 
 export default LandingPage;
+
+if (typeof window.xt === "undefined") {
+  window.xt = {
+    visit: (url) => {
+      console.log(`Visiting URL: ${url}`);
+     
+    },
+  };
+}
